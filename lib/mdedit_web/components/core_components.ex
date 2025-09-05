@@ -29,6 +29,7 @@ defmodule MdeditWeb.CoreComponents do
   use Phoenix.Component
   use Gettext, backend: MdeditWeb.Gettext
 
+  import MdeditWeb.Utils, only: [cn: 2]
   alias Phoenix.LiveView.JS
 
   @doc """
@@ -162,6 +163,7 @@ defmodule MdeditWeb.CoreComponents do
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
   attr :class, :string, default: nil, doc: "the input class to use over defaults"
   attr :error_class, :string, default: nil, doc: "the input error class to use over defaults"
+  attr :wrapper_class, :string, default: nil, doc: "additional classes for the wrapper div"
 
   attr :rest, :global,
     include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
@@ -185,7 +187,7 @@ defmodule MdeditWeb.CoreComponents do
       end)
 
     ~H"""
-    <div class="fieldset mb-2">
+    <div class={cn("fieldset mb-2", @wrapper_class)}>
       <label>
         <input type="hidden" name={@name} value="false" disabled={@rest[:disabled]} />
         <span class="label">
@@ -207,13 +209,18 @@ defmodule MdeditWeb.CoreComponents do
 
   def input(%{type: "select"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
+    <div class={cn("fieldset mb-2", @wrapper_class)}>
       <label>
         <span :if={@label} class="label mb-1">{@label}</span>
         <select
           id={@id}
           name={@name}
-          class={[@class || "w-full select", @errors != [] && (@error_class || "select-error")]}
+          class={
+            cn(
+              @class || "w-full select",
+              @errors != [] && (@error_class || "select-error")
+            )
+          }
           multiple={@multiple}
           {@rest}
         >
@@ -228,16 +235,18 @@ defmodule MdeditWeb.CoreComponents do
 
   def input(%{type: "textarea"} = assigns) do
     ~H"""
-    <div class="fieldset mb-2">
+    <div class={cn("fieldset mb-2", @wrapper_class)}>
       <label>
         <span :if={@label} class="label mb-1">{@label}</span>
         <textarea
           id={@id}
           name={@name}
-          class={[
-            @class || "w-full textarea",
-            @errors != [] && (@error_class || "textarea-error")
-          ]}
+          class={
+            cn(
+              @class || "w-full textarea",
+              @errors != [] && (@error_class || "textarea-error")
+            )
+          }
           {@rest}
         >{Phoenix.HTML.Form.normalize_value("textarea", @value)}</textarea>
       </label>
@@ -249,7 +258,7 @@ defmodule MdeditWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div class="fieldset mb-2">
+    <div class={cn("fieldset mb-2", @wrapper_class)}>
       <label>
         <span :if={@label} class="label mb-1">{@label}</span>
         <input
@@ -257,10 +266,12 @@ defmodule MdeditWeb.CoreComponents do
           name={@name}
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
-          class={[
-            @class || "w-full input",
-            @errors != [] && (@error_class || "input-error")
-          ]}
+          class={
+            cn(
+              @class || "w-full input",
+              @errors != [] && (@error_class || "input-error")
+            )
+          }
           {@rest}
         />
       </label>

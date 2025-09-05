@@ -24,7 +24,7 @@
 @plugin "../vendor/daisyui-theme" {
   name: "dark";
   default: false;
-  prefersdark: true;
+  prefersdark: false;
   color-scheme: "dark";
   --color-base-100: oklch(30.33% 0.016 252.42);
   --color-base-200: oklch(25.26% 0.014 253.1);
@@ -54,12 +54,19 @@
   --border: 1.5px;
   --depth: 1;
   --noise: 0;
+
+  /* Custom markdown editor variables */
+  --md-blockquote-border: oklch(from var(--color-base-content) l c h / 0.3);
+  --md-heading-border: oklch(from var(--color-base-content) l c h / 0.15);
+  --md-table-border: oklch(from var(--color-base-content) l c h / 0.3);
+  --md-code-block-bg: var(--color-base-200);
+  --md-inline-code-bg: var(--color-base-200);
 }
 
 @plugin "../vendor/daisyui-theme" {
   name: "light";
   default: true;
-  prefersdark: false;
+  prefersdark: true;
   color-scheme: "light";
   --color-base-100: oklch(98% 0 0);
   --color-base-200: oklch(96% 0.001 286.375);
@@ -89,6 +96,13 @@
   --border: 1.5px;
   --depth: 1;
   --noise: 0;
+
+  /* Custom markdown editor variables */
+  --md-blockquote-border: oklch(from var(--color-base-content) l c h / 0.3);
+  --md-heading-border: oklch(from var(--color-base-content) l c h / 0.15);
+  --md-table-border: oklch(from var(--color-base-content) l c h / 0.3);
+  --md-code-block-bg: var(--color-base-200);
+  --md-inline-code-bg: var(--color-base-200);
 }
 
 /* Add variants based on LiveView classes */
@@ -103,3 +117,212 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* This file is for your main application CSS */
+
+/* Markdown Editor Styles */
+#markdown-editor {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Liberation Mono', 'Courier New', monospace;
+  line-height: 1.6;
+  resize: none;
+  border: none;
+  outline: none;
+  padding: 1rem;
+  background: transparent;
+  color: var(--color-base-content);
+}
+
+#markdown-editor:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Markdown Preview Styles */
+#markdown-preview {
+  line-height: 1.7;
+}
+
+#markdown-preview h1,
+#markdown-preview h2,
+#markdown-preview h3,
+#markdown-preview h4,
+#markdown-preview h5,
+#markdown-preview h6 {
+  margin-top: 0.8em;
+  margin-bottom: 0.4em;
+  font-weight: 600;
+}
+
+#markdown-preview h1:first-child,
+#markdown-preview h2:first-child,
+#markdown-preview h3:first-child,
+#markdown-preview h4:first-child,
+#markdown-preview h5:first-child,
+#markdown-preview h6:first-child {
+  margin-top: 0;
+}
+
+#markdown-preview h1 {
+  font-size: 2em;
+  border-bottom: 1px solid var(--md-heading-border);
+}
+
+#markdown-preview h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid var(--md-heading-border);
+}
+
+#markdown-preview h3 {
+  font-size: 1.25em;
+}
+
+#markdown-preview p {
+  margin-bottom: 1em;
+}
+
+#markdown-preview code {
+  background-color: var(--md-inline-code-bg);
+  color: var(--color-error);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.85em;
+  font-family: inherit;
+  border: 1px solid var(--md-table-border);
+}
+
+#markdown-preview pre {
+  background-color: var(--md-code-block-bg);
+  border: 1px solid var(--md-table-border);
+  border-radius: 6px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+#markdown-preview pre code {
+  background: transparent;
+  color: var(--color-base-content);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  font-size: 0.875em;
+}
+
+#markdown-preview blockquote {
+  border-left: 4px solid var(--md-blockquote-border);
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-radius: 0 6px 6px 0;
+  color: oklch(from var(--color-base-content) l c h / 0.8);
+}
+
+#markdown-preview blockquote p {
+  margin: 0.5em 0;
+}
+
+#markdown-preview blockquote p:first-child {
+  margin-top: 0;
+}
+
+#markdown-preview blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+#markdown-preview ul,
+#markdown-preview ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+#markdown-preview ul {
+  list-style-type: disc;
+}
+
+#markdown-preview ol {
+  list-style-type: decimal;
+}
+
+#markdown-preview ul ul {
+  list-style-type: circle;
+}
+
+#markdown-preview ul ul ul {
+  list-style-type: square;
+}
+
+#markdown-preview li {
+  margin: 0.25em 0;
+  display: list-item;
+}
+
+#markdown-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  border: 1px solid var(--md-table-border);
+}
+
+#markdown-preview th,
+#markdown-preview td {
+  border: 1px solid var(--md-table-border);
+  padding: 0.75em;
+  text-align: left;
+  vertical-align: top;
+}
+
+#markdown-preview th {
+  background-color: var(--color-base-200);
+  font-weight: 600;
+}
+
+#markdown-preview thead th {
+  border-bottom: 1px solid var(--md-table-border);
+}
+
+#markdown-preview img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 1em 0;
+  border: 1px solid var(--md-table-border);
+  background-color: var(--md-code-block-bg);
+}
+
+#markdown-preview a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+#markdown-preview a:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+#markdown-preview hr {
+  border: none;
+  border-top: 2px solid var(--color-base-300);
+  margin: 2em 0;
+  width: 100%;
+  height: 0;
+}
+
+/* Checkbox support for task lists */
+#markdown-preview input[type="checkbox"] {
+  margin-right: 0.5em;
+  margin-left: -1.5em;
+  accent-color: var(--color-primary);
+}
+
+#markdown-preview li:has(input[type="checkbox"]) {
+  list-style: none;
+  position: relative;
+}
+
+/* Fallback for browsers without :has() support */
+#markdown-preview li input[type="checkbox"] {
+  position: relative;
+  margin-left: -1.5em;
+  margin-right: 0.5em;
+}
+
+#markdown-preview li input[type="checkbox"] + * {
+  display: inline;
+}

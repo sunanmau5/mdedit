@@ -25,11 +25,58 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/mdedit"
 import topbar from "../vendor/topbar"
 
+// Add keyboard shortcuts for the markdown editor
+let EditorHook = {
+  mounted() {
+    this.el.addEventListener("keydown", (e) => {
+      // Ctrl+S or Cmd+S to save document
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        document.querySelector('[phx-click="save_document"]')?.click()
+      }
+
+      // Tab to insert tab character instead of focusing next element
+      if (e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault()
+        const start = this.el.selectionStart
+        const end = this.el.selectionEnd
+        this.el.value = this.el.value.substring(0, start) + '\t' + this.el.value.substring(end)
+        this.el.selectionStart = this.el.selectionEnd = start + 1
+
+        // trigger change event
+        this.el.dispatchEvent(new Event('input', { bubbles: true }))
+      }
+    })
+
+    // Handle real-time content synchronization from other users
+    this.handleEvent("sync_content", ({ content }) => {
+      // preserve cursor position if possible
+      const start = this.el.selectionStart
+      const end = this.el.selectionEnd
+
+      // Update content only if different to avoid cursor jumping
+      if (this.el.value !== content) {
+        this.el.value = content
+
+        // Try to preserve cursor position
+        const newLength = content.length
+        const newStart = Math.min(start, newLength)
+        const newEnd = Math.min(end, newLength)
+
+        this.el.setSelectionRange(newStart, newEnd)
+      }
+    })
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks},
+  hooks: {
+    ...colocatedHooks,
+    EditorHook
+  },
 })
 
 // Show progress bar on live navigation and form submits

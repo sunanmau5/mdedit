@@ -12,6 +12,8 @@ defmodule Mdedit.Application do
       Mdedit.Repo,
       {DNSCluster, query: Application.get_env(:mdedit, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Mdedit.PubSub},
+      MdeditWeb.Presence,
+      TwMerge.Cache,
       # Start a worker by calling: Mdedit.Worker.start_link(arg)
       # {Mdedit.Worker, arg},
       # Start to serve requests, typically the last entry

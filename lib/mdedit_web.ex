@@ -87,6 +87,9 @@ defmodule MdeditWeb do
       # Core UI components
       import MdeditWeb.CoreComponents
 
+      # Utility functions
+      import MdeditWeb.Utils, only: [cn: 1, cn: 2, cn: 3, cn: 4, cn: 5]
+
       # Common modules used in templates
       alias Phoenix.LiveView.JS
       alias MdeditWeb.Layouts

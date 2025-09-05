@@ -17,7 +17,9 @@ defmodule MdeditWeb.Router do
   scope "/", MdeditWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", HomeLive, :index
+    live "/editor", EditorLive, :new
+    live "/editor/:slug", EditorLive, :edit
   end
 
   # Other scopes may use custom stacks.
