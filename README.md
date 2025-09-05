@@ -1,18 +1,57 @@
-# Mdedit
+# MDEdit
 
-To start your Phoenix server:
+A collaborative markdown editor built with Phoenix LiveView. Edit documents together in real-time with a clean split-pane interface.
 
-* Run `mix setup` to install and setup dependencies
-* Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
+## What it does
 
-Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
+- **Real-time collaboration** - Multiple people can edit the same document simultaneously
+- **Live preview** - See your markdown rendered as you type
+- **GitHub flavored markdown** - Tables, checkboxes, code blocks, and more
+- **Clean interface** - Editor on the left, preview on the right
+- **Automatic saving** - Your work is saved automatically
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+## Quick start
 
-## Learn more
+```bash
+# Install dependencies
+mix setup
 
-* Official website: https://www.phoenixframework.org/
+# Start the server
+mix phx.server
+```
+
+Visit `localhost:4000` and start writing!
+
+## Usage
+
+Create a new document by visiting `/editor` or clicking "New Document". Share the URL with others to collaborate. Everyone's changes appear instantly.
+
+**Keyboard shortcuts:**
+- `Ctrl/Cmd + S` - Save document
+- `Tab` - Insert tab (instead of jumping to next field)
+
+## How it works
+
+Built with Phoenix LiveView for real-time updates, Phoenix PubSub for collaboration, and Earmark for markdown parsing. Uses PostgreSQL to store documents and Tailwind CSS with DaisyUI for styling.
+
+## Development
+
+Run tests and checks:
+```bash
+mix precommit
+```
+
+Start with interactive shell:
+```bash
+iex -S mix phx.server
+```
+
+## Contributing
+
+Fork, create a branch, make changes, run `mix precommit`, and submit a PR.
+
+## Learn more about Phoenix
+
+* Website: https://www.phoenixframework.org/
 * Guides: https://hexdocs.pm/phoenix/overview.html
-* Docs: https://hexdocs.pm/phoenix
 * Forum: https://elixirforum.com/c/phoenix-forum
-* Source: https://github.com/phoenixframework/phoenix

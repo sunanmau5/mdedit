@@ -304,21 +304,19 @@ defmodule MdeditWeb.EditorLive do
             <div class="bg-base-100 px-4 py-2 border-b border-base-300">
               <h2 class="text-sm font-semibold text-base-content/70">Editor</h2>
             </div>
-            <div class="flex-1 p-4">
-              <.form for={@form} id="editor-form" class="h-full">
-                <textarea
-                  id="markdown-editor"
-                  name="content"
-                  phx-change="content_changed"
-                  phx-hook="EditorHook"
-                  value={Phoenix.HTML.Form.input_value(@form, :content)}
-                  class="w-full h-full resize-none border-0 focus:ring-0 focus:outline-none font-mono text-sm leading-relaxed bg-transparent"
-                  placeholder="Start typing your markdown here..."
-                  spellcheck="false"
-                  autocomplete="off"
-                ></textarea>
-              </.form>
-            </div>
+            <.form for={@form} id="editor-form" class="h-full">
+              <textarea
+                id="markdown-editor"
+                name="content"
+                phx-change="content_changed"
+                phx-hook="EditorHook"
+                value={Phoenix.HTML.Form.input_value(@form, :content)}
+                class="w-full h-full resize-none border-0 focus:ring-0 focus:outline-none font-mono text-sm leading-relaxed bg-transparent"
+                placeholder="Start typing your markdown here..."
+                spellcheck="false"
+                autocomplete="off"
+              ></textarea>
+            </.form>
           </div>
 
     <!-- Preview Pane -->
