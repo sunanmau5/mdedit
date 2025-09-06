@@ -317,18 +317,16 @@ defmodule MdeditWeb.EditorLive do
             <a href="/" class="flex items-center gap-2 text-lg font-bold">
               <.icon name="hero-document-text" class="w-5 h-5" /> MDEdit
             </a>
-            <div class="flex-1 max-w-md">
-              <.input
-                field={@form[:title]}
-                type="text"
-                id="document-title-desktop"
-                class="input input-bordered input-sm w-full"
-                wrapper_class="mb-0"
-                placeholder="Document title..."
-                phx-blur="title_changed"
-                phx-change="title_changed"
-              />
-            </div>
+            <.input
+              field={@form[:title]}
+              type="text"
+              id="document-title-desktop"
+              class="input input-sm h-6"
+              wrapper_class="mb-0 flex-1 max-w-md"
+              placeholder="Document title..."
+              phx-blur="title_changed"
+              phx-change="title_changed"
+            />
           </div>
 
     <!-- Right side: Users, Share, Save -->
