@@ -313,7 +313,7 @@ defmodule MdeditWeb.EditorLive do
         <!-- Desktop: Single Row -->
         <div class="hidden md:flex items-center justify-between min-h-8">
           <!-- Left side: Logo and Document Title -->
-          <div class="flex items-center gap-4 flex-1">
+          <div class="flex items-center gap-4 flex-1 mr-4 lg:mr-0">
             <a href="/" class="flex items-center gap-2 text-lg font-bold">
               <.icon name="hero-document-text" class="w-5 h-5" /> MDEdit
             </a>
