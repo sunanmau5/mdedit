@@ -52,6 +52,7 @@ defmodule MdeditWeb.EditorLive do
       |> assign(:presence_topic, presence_topic)
       |> assign(:connected_users, %{})
       |> assign(:user_id, user_id)
+      |> assign(:last_content, document.content || "")
       |> handle_presence_diff(%{})
 
     {:ok, socket}
@@ -82,10 +83,14 @@ defmodule MdeditWeb.EditorLive do
       {:content_changed, content, self()}
     )
 
+    # Auto-save after a delay (debounced)
+    Process.send_after(self(), {:auto_save, content}, 2000)
+
     socket =
       socket
       |> assign(:form, form)
       |> assign(:preview_html, preview_html)
+      |> assign(:last_content, content)
 
     {:noreply, socket}
   end
@@ -109,7 +114,8 @@ defmodule MdeditWeb.EditorLive do
         socket =
           socket
           |> assign(:document, document)
-          |> assign(:form, Documents.change_document(document) |> to_form())
+          # Don't recreate the form - just update the document reference
+          # This preserves the current editor state
           |> put_flash(:info, "Document saved successfully!")
 
         {:noreply, socket}
@@ -182,6 +188,38 @@ defmodule MdeditWeb.EditorLive do
 
   def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff", payload: diff}, socket) do
     {:noreply, handle_presence_diff(socket, diff)}
+  end
+
+  def handle_info({:auto_save, content}, socket) do
+    # Only auto-save if the content hasn't changed since the timer was set
+    current_content = Phoenix.HTML.Form.input_value(socket.assigns.form, :content) || ""
+    
+    if current_content == content and content != socket.assigns.document.content do
+      title = Phoenix.HTML.Form.input_value(socket.assigns.form, :title) || ""
+      document_params = %{title: title, content: content}
+
+      case Documents.update_document(socket.assigns.document, document_params) do
+        {:ok, document} ->
+          # broadcast save to other users
+          Phoenix.PubSub.broadcast(
+            Mdedit.PubSub,
+            socket.assigns.topic,
+            {:document_saved, document}
+          )
+
+          socket =
+            socket
+            |> assign(:document, document)
+            |> put_flash(:info, "Auto-saved")
+
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   defp create_new_document(slug) do
@@ -287,10 +325,14 @@ defmodule MdeditWeb.EditorLive do
             <span class="text-sm text-base-content/70">
               Share: {~p"/editor/#{@document.slug}"}
             </span>
+            <span class="text-xs text-base-content/50">
+              Auto-save enabled
+            </span>
             <.button
               type="button"
               phx-click="save_document"
-              class="btn btn-primary btn-sm"
+              class="btn btn-outline btn-sm"
+              title="Manual save (Ctrl+S)"
             >
               <.icon name="hero-document-arrow-down" class="w-4 h-4 mr-1" /> Save
             </.button>
@@ -310,12 +352,11 @@ defmodule MdeditWeb.EditorLive do
                 name="content"
                 phx-change="content_changed"
                 phx-hook="EditorHook"
-                value={Phoenix.HTML.Form.input_value(@form, :content)}
                 class="w-full h-full resize-none border-0 focus:ring-0 focus:outline-none font-mono text-sm leading-relaxed bg-transparent"
                 placeholder="Start typing your markdown here..."
                 spellcheck="false"
                 autocomplete="off"
-              ></textarea>
+              >{Phoenix.HTML.Form.input_value(@form, :content)}</textarea>
             </.form>
           </div>
 
