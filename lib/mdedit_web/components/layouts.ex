@@ -45,7 +45,7 @@ defmodule MdeditWeb.Layouts do
       </div>
     </header>
 
-    <main class={if assigns[:full_width], do: "", else: "px-4 py-20 sm:px-6 lg:px-8"}>
+    <main class={if assigns[:full_width], do: "", else: "px-4 py-4 sm:py-20 sm:px-6 lg:px-8"}>
       <div class={if assigns[:full_width], do: "", else: "mx-auto max-w-2xl space-y-4"}>
         {render_slot(@inner_block)}
       </div>
