@@ -108,7 +108,7 @@ defmodule MdeditWeb.EditorLive do
         Phoenix.PubSub.broadcast(
           Mdedit.PubSub,
           socket.assigns.topic,
-          {:document_saved, document}
+          {:document_saved, document, self()}
         )
 
         socket =
@@ -126,12 +126,31 @@ defmodule MdeditWeb.EditorLive do
   end
 
   def handle_event("title_changed", %{"value" => title}, socket) do
-    # update title in real-time but don't save yet
+    # update the form with new title
+    form =
+      socket.assigns.document
+      |> Map.put(:title, title)
+      |> Documents.change_document()
+      |> to_form()
+
+    # broadcast title change to other users
     Phoenix.PubSub.broadcast(
       Mdedit.PubSub,
       socket.assigns.topic,
       {:title_changed, title, self()}
     )
+
+    {:noreply, assign(socket, :form, form)}
+  end
+
+  def handle_event("share_document", _params, socket) do
+    # Get the full URL for sharing
+    url = "#{MdeditWeb.Endpoint.url()}/editor/#{socket.assigns.document.slug}"
+
+    socket =
+      socket
+      |> put_flash(:info, "Share link copied to clipboard!")
+      |> push_event("copy_to_clipboard", %{text: url})
 
     {:noreply, socket}
   end
@@ -176,14 +195,18 @@ defmodule MdeditWeb.EditorLive do
     end
   end
 
-  def handle_info({:document_saved, document}, socket) do
-    socket =
-      socket
-      |> assign(:document, document)
-      |> assign(:form, Documents.change_document(document) |> to_form())
-      |> put_flash(:info, "Document updated by another user")
+  def handle_info({:document_saved, document, sender_pid}, socket) do
+    if sender_pid != self() do
+      socket =
+        socket
+        |> assign(:document, document)
+        |> assign(:form, Documents.change_document(document) |> to_form())
+        |> put_flash(:info, "Document updated by another user")
 
-    {:noreply, socket}
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff", payload: diff}, socket) do
@@ -193,7 +216,7 @@ defmodule MdeditWeb.EditorLive do
   def handle_info({:auto_save, content}, socket) do
     # Only auto-save if the content hasn't changed since the timer was set
     current_content = Phoenix.HTML.Form.input_value(socket.assigns.form, :content) || ""
-    
+
     if current_content == content and content != socket.assigns.document.content do
       title = Phoenix.HTML.Form.input_value(socket.assigns.form, :title) || ""
       document_params = %{title: title, content: content}
@@ -204,7 +227,7 @@ defmodule MdeditWeb.EditorLive do
           Phoenix.PubSub.broadcast(
             Mdedit.PubSub,
             socket.assigns.topic,
-            {:document_saved, document}
+            {:document_saved, document, self()}
           )
 
           socket =
@@ -279,65 +302,76 @@ defmodule MdeditWeb.EditorLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} full_width={true}>
-      <div class="h-screen flex flex-col">
-        <!-- Header -->
-        <header class="bg-base-200 border-b border-base-300 px-4 py-3 flex items-center justify-between">
-          <div class="flex items-center gap-4 flex-1">
-            <h1 class="text-xl font-bold">MDEdit</h1>
-            <div class="flex-1 max-w-md">
-              <.input
-                field={@form[:title]}
-                type="text"
-                class="input input-bordered input-sm w-full"
-                wrapper_class="mb-0"
-                placeholder="Document title..."
-                phx-blur="title_changed"
-                phx-change="title_changed"
-              />
-            </div>
+    <div class="h-screen flex flex-col">
+      <!-- Unified Header -->
+      <header class="bg-base-100 border-b border-base-300 px-4 py-2 flex items-center justify-between min-h-12 h-12">
+        <!-- Left side: Logo and Document Title -->
+        <div class="flex items-center gap-4 flex-1">
+          <a href="/" class="flex items-center gap-2 text-lg font-bold">
+            <.icon name="hero-document-text" class="w-5 h-5" />
+            MDEdit
+          </a>
+          <div class="flex-1 max-w-md">
+            <.input
+              field={@form[:title]}
+              type="text"
+              class="input input-bordered input-sm w-full"
+              wrapper_class="mb-0"
+              placeholder="Document title..."
+              phx-blur="title_changed"
+              phx-change="title_changed"
+            />
           </div>
+        </div>
 
-          <div class="flex items-center gap-4">
-            <!-- Connected Users -->
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-base-content/70 ml-2">
-                {map_size(@connected_users)} online
-              </span>
-              <div class="flex -space-x-2">
-                <div :for={{user_id, user} <- @connected_users} class="relative">
-                  <div
-                    class={
-                      cn(
-                        "w-8 h-8 rounded-full bg-primary text-primary-content",
-                        "flex items-center justify-center text-xs font-medium",
-                        "border-2 border-base-100"
-                      )
-                    }
-                    title={user.name}
-                  >
-                    {String.first(user.name)}
-                  </div>
+        <!-- Right side: Users, Share, Save -->
+        <div class="flex items-center gap-4">
+          <!-- Connected Users -->
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-base-content/70">
+              {map_size(@connected_users)} online
+            </span>
+            <div class="flex -space-x-2">
+              <div :for={{user_id, user} <- @connected_users} class="relative">
+                <div
+                  class={
+                    cn(
+                      "w-7 h-7 rounded-full bg-primary text-primary-content",
+                      "flex items-center justify-center text-xs font-medium",
+                      "border-2 border-base-100"
+                    )
+                  }
+                  title={user.name}
+                >
+                  {String.first(user.name)}
                 </div>
               </div>
             </div>
-
-            <span class="text-sm text-base-content/70">
-              Share: {~p"/editor/#{@document.slug}"}
-            </span>
-            <span class="text-xs text-base-content/50">
-              Auto-save enabled
-            </span>
-            <.button
-              type="button"
-              phx-click="save_document"
-              class="btn btn-outline btn-sm"
-              title="Manual save (Ctrl+S)"
-            >
-              <.icon name="hero-document-arrow-down" class="w-4 h-4 mr-1" /> Save
-            </.button>
           </div>
-        </header>
+
+          <span class="text-xs text-base-content/50">
+            Auto-save enabled
+          </span>
+          <.button
+            type="button"
+            phx-click="share_document"
+            class="btn btn-ghost btn-sm"
+            title="Copy share link"
+          >
+            <.icon name="hero-share" class="w-4 h-4 mr-1" /> Share
+          </.button>
+          <.button
+            type="button"
+            phx-click="save_document"
+            class="btn btn-outline btn-sm"
+            title="Manual save (Ctrl+S)"
+          >
+            <.icon name="hero-document-arrow-down" class="w-4 h-4 mr-1" /> Save
+          </.button>
+        </div>
+      </header>
+
+      <MdeditWeb.Layouts.flash_group flash={@flash} />
 
     <!-- Main Editor Area -->
         <div class="flex-1 flex overflow-hidden">
@@ -376,7 +410,6 @@ defmodule MdeditWeb.EditorLive do
           </div>
         </div>
       </div>
-    </Layouts.app>
     """
   end
 end

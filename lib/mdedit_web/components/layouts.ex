@@ -36,25 +36,12 @@ defmodule MdeditWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8 bg-base-100 border-b border-base-300">
+    <header class="navbar px-4 bg-base-100 border-b border-base-300 min-h-12 h-12">
       <div class="flex-1">
-        <a href="/" class="flex items-center gap-2 text-xl font-bold">
-          <.icon name="hero-document-text" class="w-6 h-6" />
+        <a href="/" class="flex items-center gap-2 text-lg font-bold">
+          <.icon name="hero-document-text" class="w-5 h-5" />
           MDEdit
         </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
-          <li>
-            <a href="/" class="btn btn-ghost btn-sm">Home</a>
-          </li>
-          <li>
-            <a href="/editor" class="btn btn-ghost btn-sm">New Document</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-        </ul>
       </div>
     </header>
 

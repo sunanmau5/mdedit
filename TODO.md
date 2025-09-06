@@ -1,4 +1,0 @@
-- [x] Deploy
-- [x] Don't clear editor content on save / should we just auto-save and no manual saving?
-- [x] When opening a saved content, only the preview shows the saved content, but the editor is empty
-- [x] Remove phoenix boilerplate header

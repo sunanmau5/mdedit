@@ -87,6 +87,23 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 
+// Handle copy to clipboard events
+window.addEventListener("phx:copy_to_clipboard", (e) => {
+  const text = e.detail.text
+  navigator.clipboard.writeText(text).then(() => {
+    console.log("Copied to clipboard:", text)
+  }).catch(err => {
+    console.error("Failed to copy to clipboard:", err)
+    // Fallback for older browsers
+    const textArea = document.createElement("textarea")
+    textArea.value = text
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand("copy")
+    document.body.removeChild(textArea)
+  })
+})
+
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
