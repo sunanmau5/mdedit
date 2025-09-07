@@ -69,6 +69,19 @@ let EditorHook = {
   }
 }
 
+// Auto-dismiss flash messages after 1 second
+const FlashHook = {
+  mounted() {
+    // Auto-dismiss after 1 second by triggering the existing click handler
+    this.timer = setTimeout(() => this.el.click(), 1000)
+  },
+  
+  destroyed() {
+    // Clear timer if component is destroyed before auto-dismiss
+    clearTimeout(this.timer)
+  }
+}
+
 // Admin token management for pads
 const AdminTokenManager = {
   store(padId, adminToken) {
@@ -106,7 +119,8 @@ const liveSocket = new LiveSocket("/live", Socket, {
   },
   hooks: {
     ...colocatedHooks,
-    EditorHook
+    EditorHook,
+    FlashHook
   },
 })
 
@@ -122,7 +136,7 @@ liveSocket.connect()
 window.addEventListener("phx:copy_to_clipboard", (e) => {
   const text = e.detail.text
   navigator.clipboard.writeText(text).then(() => {
-    console.log("Copied to clipboard:", text)
+    // Successfully copied to clipboard
   }).catch(err => {
     console.error("Failed to copy to clipboard:", err)
     // Fallback for older browsers
