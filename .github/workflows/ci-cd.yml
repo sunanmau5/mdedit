@@ -14,10 +14,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - run: sudo pip install gigalixir --ignore-installed six
-
-      - run: gigalixir login -e "${{ secrets.GIGALIXIR_EMAIL }}" -y -p "${{ secrets.GIGALIXIR_PASSWORD }}"
-
-      - run: gigalixir git:remote ${{ secrets.GIGALIXIR_APP_NAME }}
-
-      - run: git push -f gigalixir HEAD:refs/heads/master
+      - uses: mhanberg/gigalixir-action@v0.6.0
+        with:
+          GIGALIXIR_USERNAME: ${{ secrets.GIGALIXIR_EMAIL }}
+          GIGALIXIR_PASSWORD: ${{ secrets.GIGALIXIR_PASSWORD }}
+          GIGALIXIR_APP: ${{ secrets.GIGALIXIR_APP_NAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          MIGRATIONS: true
