@@ -10,37 +10,6 @@ defmodule Mdedit.Documents do
   @type document_attrs :: %{optional(atom()) => any()}
 
   @doc """
-  Returns the list of documents.
-
-  ## Examples
-
-      iex> list_documents()
-      [%Document{}, ...]
-
-  """
-  @spec list_documents() :: [Document.t()]
-  def list_documents do
-    Repo.all(from d in Document, order_by: [desc: d.updated_at])
-  end
-
-  @doc """
-  Gets a single document.
-
-  Raises `Ecto.NoResultsError` if the Document does not exist.
-
-  ## Examples
-
-      iex> get_document!(123)
-      %Document{}
-
-      iex> get_document!(456)
-      ** (Ecto.NoResultsError)
-
-  """
-  @spec get_document!(integer()) :: Document.t()
-  def get_document!(id), do: Repo.get!(Document, id)
-
-  @doc """
   Gets a document by slug.
 
   ## Examples
@@ -91,6 +60,21 @@ defmodule Mdedit.Documents do
   end
 
   @doc """
+  Creates a document with admin token for ownership.
+
+  ## Examples
+
+      iex> create_document_with_admin(%{title: "My Document"})
+      {:ok, %Document{}}
+
+  """
+  def create_document_with_admin(attrs \\ %{}) do
+    %Document{}
+    |> Document.create_changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
   Updates a document.
 
   ## Examples
@@ -135,6 +119,23 @@ defmodule Mdedit.Documents do
   """
   def change_document(%Document{} = document, attrs \\ %{}) do
     Document.changeset(document, attrs)
+  end
+
+  @doc """
+  Checks if the provided admin token grants admin access to the document.
+
+  ## Examples
+
+      iex> admin?(document, "valid_token")
+      true
+
+      iex> admin?(document, "invalid_token")
+      false
+
+  """
+  @spec admin?(Document.t(), String.t() | nil) :: boolean()
+  def admin?(%Document{} = document, admin_token) do
+    Document.admin?(document, admin_token)
   end
 
   @doc """

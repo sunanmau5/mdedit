@@ -69,10 +69,41 @@ let EditorHook = {
   }
 }
 
+// Admin token management for pads
+const AdminTokenManager = {
+  store(padId, adminToken) {
+    localStorage.setItem(`admin_token_${padId}`, adminToken)
+  },
+
+  get(padId) {
+    return localStorage.getItem(`admin_token_${padId}`)
+  },
+
+  clear(padId) {
+    localStorage.removeItem(`admin_token_${padId}`)
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: {_csrf_token: csrfToken},
+  params: (liveSocket) => {
+    const params = {_csrf_token: csrfToken}
+
+    // Add admin token for editor routes
+    const path = window.location.pathname
+    const editorMatch = path.match(/^\/editor\/([^\/]+)$/)
+
+    if (editorMatch) {
+      const slug = editorMatch[1]
+      const adminToken = AdminTokenManager.get(slug)
+      if (adminToken) {
+        params.admin_token = adminToken
+      }
+    }
+
+    return params
+  },
   hooks: {
     ...colocatedHooks,
     EditorHook
@@ -102,6 +133,19 @@ window.addEventListener("phx:copy_to_clipboard", (e) => {
     document.execCommand("copy")
     document.body.removeChild(textArea)
   })
+})
+
+// Handle admin token storage events
+window.addEventListener("phx:store_admin_token", (e) => {
+  const { slug, admin_token } = e.detail
+  AdminTokenManager.store(slug, admin_token)
+  console.log("Admin token stored for document:", slug)
+})
+
+window.addEventListener("phx:clear_admin_token", (e) => {
+  const { slug } = e.detail
+  AdminTokenManager.clear(slug)
+  console.log("Admin token cleared for document:", slug)
 })
 
 // expose liveSocket on window for web console debug logs and latency simulation:

@@ -14,6 +14,10 @@ defmodule MdeditWeb.EditorLive do
     # try to find existing document or create new one
     document = Documents.get_document_by_slug(slug) || create_new_document(slug)
 
+    # Get admin token from connect_params (will be set by JavaScript)
+    admin_token = get_connect_params(socket)["admin_token"]
+    is_admin = Documents.admin?(document, admin_token)
+
     # subscribe to document updates for real-time collaboration
     topic = "document:#{document.slug}"
     presence_topic = "presence:#{document.slug}"
@@ -54,6 +58,9 @@ defmodule MdeditWeb.EditorLive do
       |> assign(:user_id, user_id)
       |> assign(:last_content, document.content || "")
       |> assign(:mobile_tab, "editor")
+      |> assign(:is_admin, is_admin)
+      |> assign(:admin_token, if(is_admin, do: document.admin_token, else: nil))
+      |> assign(:show_delete_confirmation, false)
       |> handle_presence_diff(%{})
 
     {:ok, socket}
@@ -63,6 +70,23 @@ defmodule MdeditWeb.EditorLive do
     # if no slug provided, create a new document
     slug = generate_slug()
     {:ok, push_navigate(socket, to: ~p"/editor/#{slug}")}
+  end
+
+  @impl true
+  def handle_params(_params, _url, socket) do
+    # Store admin token when document is first created
+    if socket.assigns[:document] && socket.assigns[:document].admin_token &&
+         socket.assigns.is_admin do
+      socket =
+        push_event(socket, "store_admin_token", %{
+          slug: socket.assigns.document.slug,
+          admin_token: socket.assigns.document.admin_token
+        })
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -158,6 +182,37 @@ defmodule MdeditWeb.EditorLive do
 
   def handle_event("switch_tab", %{"tab" => tab}, socket) when tab in ["editor", "preview"] do
     {:noreply, assign(socket, :mobile_tab, tab)}
+  end
+
+  def handle_event("show_delete_confirmation", _params, socket) do
+    if socket.assigns.is_admin do
+      {:noreply, assign(socket, :show_delete_confirmation, true)}
+    else
+      {:noreply, put_flash(socket, :error, "Only the creator can delete this document")}
+    end
+  end
+
+  def handle_event("hide_delete_confirmation", _params, socket) do
+    {:noreply, assign(socket, :show_delete_confirmation, false)}
+  end
+
+  def handle_event("delete_document", _params, socket) do
+    if socket.assigns.is_admin do
+      case Documents.delete_document(socket.assigns.document) do
+        {:ok, _document} ->
+          # Clear admin token from localStorage
+          {:noreply,
+           socket
+           |> push_event("clear_admin_token", %{slug: socket.assigns.document.slug})
+           |> put_flash(:info, "Document deleted successfully")
+           |> redirect(to: ~p"/")}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, "Failed to delete document")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Only the creator can delete this document")}
+    end
   end
 
   @impl true
@@ -257,7 +312,7 @@ defmodule MdeditWeb.EditorLive do
       slug: slug
     }
 
-    case Documents.create_document(document_attrs) do
+    case Documents.create_document_with_admin(document_attrs) do
       {:ok, document} ->
         document
 
@@ -266,7 +321,7 @@ defmodule MdeditWeb.EditorLive do
         new_slug = generate_slug()
         updated_attrs = %{document_attrs | slug: new_slug}
 
-        {:ok, document} = Documents.create_document(updated_attrs)
+        {:ok, document} = Documents.create_document_with_admin(updated_attrs)
         document
     end
   end
@@ -328,7 +383,7 @@ defmodule MdeditWeb.EditorLive do
               phx-change="title_changed"
             />
           </div>
-
+          
     <!-- Right side: Users, Share, Save -->
           <div class="flex items-center gap-4">
             <!-- Connected Users -->
@@ -373,9 +428,19 @@ defmodule MdeditWeb.EditorLive do
             >
               <.icon name="hero-share" class="w-4 h-4 mr-1" /> Share
             </.button>
+            <%= if @is_admin do %>
+              <.button
+                type="button"
+                phx-click="show_delete_confirmation"
+                class="btn btn-error btn-sm"
+                title="Delete document (creator only)"
+              >
+                <.icon name="hero-trash" class="w-4 h-4 mr-1" /> Delete
+              </.button>
+            <% end %>
           </div>
         </div>
-
+        
     <!-- Mobile: Two Rows -->
         <div class="md:hidden space-y-3">
           <!-- Top Row: Logo and Document Title -->
@@ -396,7 +461,7 @@ defmodule MdeditWeb.EditorLive do
               />
             </div>
           </div>
-
+          
     <!-- Bottom Row: Users and Actions -->
           <div class="flex items-center justify-between gap-2">
             <!-- Left: Connected Users -->
@@ -421,7 +486,7 @@ defmodule MdeditWeb.EditorLive do
                 </div>
               </div>
             </div>
-
+            
     <!-- Right: Actions -->
             <div class="flex items-center gap-2">
               <span class="text-xs text-base-content/50 hidden sm:inline">
@@ -445,13 +510,24 @@ defmodule MdeditWeb.EditorLive do
                 <.icon name="hero-share" class="w-4 h-4" />
                 <span class="hidden sm:inline ml-1">Share</span>
               </.button>
+              <%= if @is_admin do %>
+                <.button
+                  type="button"
+                  phx-click="show_delete_confirmation"
+                  class="btn btn-error btn-sm sm:btn-xs sm:btn-error"
+                  title="Delete document (creator only)"
+                >
+                  <.icon name="hero-trash" class="w-4 h-4" />
+                  <span class="hidden sm:inline ml-1">Delete</span>
+                </.button>
+              <% end %>
             </div>
           </div>
         </div>
       </header>
 
       <MdeditWeb.Layouts.flash_group flash={@flash} />
-
+      
     <!-- Main Editor Area -->
       <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Desktop: Side by Side -->
@@ -474,7 +550,7 @@ defmodule MdeditWeb.EditorLive do
               >{Phoenix.HTML.Form.input_value(@form, :content)}</textarea>
             </.form>
           </div>
-
+          
     <!-- Preview Pane -->
           <div class="w-1/2 flex flex-col">
             <div class="bg-base-100 px-4 py-2 border-b border-base-300">
@@ -490,7 +566,7 @@ defmodule MdeditWeb.EditorLive do
             </div>
           </div>
         </div>
-
+        
     <!-- Mobile: Tabbed Interface -->
         <div class="md:hidden flex-1 flex flex-col overflow-hidden">
           <!-- Tab Navigation -->
@@ -528,7 +604,7 @@ defmodule MdeditWeb.EditorLive do
               </button>
             </div>
           </div>
-
+          
     <!-- Tab Content -->
           <div class="flex-1 overflow-hidden">
             <!-- Editor Tab -->
@@ -546,7 +622,7 @@ defmodule MdeditWeb.EditorLive do
                 >{Phoenix.HTML.Form.input_value(@form, :content)}</textarea>
               </.form>
             </div>
-
+            
     <!-- Preview Tab -->
             <div class={["h-full overflow-auto", if(@mobile_tab != "preview", do: "hidden")]}>
               <div class="p-4">
@@ -562,6 +638,39 @@ defmodule MdeditWeb.EditorLive do
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <%= if @show_delete_confirmation do %>
+      <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div class="mt-3 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+              <.icon name="hero-exclamation-triangle" class="h-6 w-6 text-red-600" />
+            </div>
+            <h3 class="text-lg leading-6 font-medium text-gray-900 mt-4">Delete Document</h3>
+            <div class="mt-2 px-7 py-3">
+              <p class="text-sm text-gray-500">
+                Are you sure you want to delete "{@document.title}"? This action cannot be undone and all content will be permanently lost.
+              </p>
+            </div>
+            <div class="flex items-center justify-center space-x-4 mt-4">
+              <button
+                phx-click="hide_delete_confirmation"
+                class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                phx-click="delete_document"
+                class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
     """
   end
 end

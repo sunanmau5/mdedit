@@ -39,8 +39,7 @@ defmodule MdeditWeb.Layouts do
     <header class="navbar px-4 bg-base-100 border-b border-base-300 min-h-12 h-12">
       <div class="flex-1">
         <a href="/" class="flex items-center gap-2 text-lg font-bold">
-          <.icon name="hero-document-text" class="w-5 h-5" />
-          MDEdit
+          <.icon name="hero-document-text" class="w-5 h-5" /> MDEdit
         </a>
       </div>
     </header>
