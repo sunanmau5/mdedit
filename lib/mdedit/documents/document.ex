@@ -8,6 +8,7 @@ defmodule Mdedit.Documents.Document do
           content: String.t() | nil,
           slug: String.t() | nil,
           admin_token: String.t() | nil,
+          expires_at: DateTime.t() | nil,
           inserted_at: DateTime.t() | nil,
           updated_at: DateTime.t() | nil
         }
@@ -17,6 +18,7 @@ defmodule Mdedit.Documents.Document do
     field :content, :string
     field :slug, :string
     field :admin_token, :string
+    field :expires_at, :utc_datetime
 
     timestamps(type: :utc_datetime)
   end
@@ -37,13 +39,14 @@ defmodule Mdedit.Documents.Document do
   """
   def create_changeset(document, attrs \\ %{}) do
     document
-    |> cast(attrs, [:title, :content, :slug])
+    |> cast(attrs, [:title, :content, :slug, :expires_at])
     |> validate_required([:title])
     |> validate_length(:title, min: 1, max: 255)
     |> maybe_validate_slug()
     |> unique_constraint(:slug)
     |> maybe_put_slug()
     |> put_change(:admin_token, generate_admin_token())
+    |> maybe_put_default_expiration()
   end
 
   @doc """
@@ -69,6 +72,45 @@ defmodule Mdedit.Documents.Document do
   end
 
   def admin?(_, _), do: false
+
+  @doc """
+  Checks if a document has expired.
+  """
+  def expired?(%__MODULE__{expires_at: nil}), do: false
+  def expired?(%__MODULE__{expires_at: expires_at}) do
+    DateTime.compare(DateTime.utc_now(), expires_at) == :gt
+  end
+
+  @doc """
+  Returns expiration options with labels and durations.
+  """
+  def expiration_options do
+    [
+      {"1 day", {1, :day}},
+      {"1 week", {1, :week}},
+      {"1 month", {1, :month}},
+      {"1 year", {1, :year}}
+    ]
+  end
+
+  @doc """
+  Calculates expiration datetime from duration tuple.
+  """
+  def calculate_expiration({amount, :day}), do: DateTime.add(DateTime.utc_now(), amount * 24 * 60 * 60, :second)
+  def calculate_expiration({amount, :week}), do: DateTime.add(DateTime.utc_now(), amount * 7 * 24 * 60 * 60, :second)
+  def calculate_expiration({amount, :month}), do: DateTime.add(DateTime.utc_now(), amount * 30 * 24 * 60 * 60, :second)
+  def calculate_expiration({amount, :year}), do: DateTime.add(DateTime.utc_now(), amount * 365 * 24 * 60 * 60, :second)
+
+  defp maybe_put_default_expiration(changeset) do
+    case get_field(changeset, :expires_at) do
+      nil ->
+        # Default to 1 month if not specified
+        default_expiration = calculate_expiration({1, :month})
+        put_change(changeset, :expires_at, default_expiration)
+      _expires_at ->
+        changeset
+    end
+  end
 
   defp maybe_validate_slug(changeset) do
     case get_field(changeset, :slug) do

@@ -10,7 +10,7 @@ defmodule Mdedit.Documents do
   @type document_attrs :: %{optional(atom()) => any()}
 
   @doc """
-  Gets a document by slug.
+  Gets a document by slug if it exists and hasn't expired.
 
   ## Examples
 
@@ -20,9 +20,20 @@ defmodule Mdedit.Documents do
       iex> get_document_by_slug("nonexistent")
       nil
 
+      iex> get_document_by_slug("expired-document")
+      nil
+
   """
   def get_document_by_slug(slug) when is_binary(slug) do
-    Repo.get_by(Document, slug: slug)
+    case Repo.get_by(Document, slug: slug) do
+      nil -> nil
+      document ->
+        if Document.expired?(document) do
+          nil
+        else
+          document
+        end
+    end
   end
 
   @doc """

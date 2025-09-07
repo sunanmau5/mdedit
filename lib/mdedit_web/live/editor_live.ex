@@ -11,11 +11,32 @@ defmodule MdeditWeb.EditorLive do
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
-    # try to find existing document or create new one
-    document = Documents.get_document_by_slug(slug) || create_new_document(slug)
+    # try to find existing document
+    case Documents.get_document_by_slug(slug) do
+      nil ->
+        # Document doesn't exist, show expiration selection
+        # Store admin token from connect_params for later use
+        admin_token = get_connect_params(socket)["admin_token"]
 
-    # Get admin token from connect_params (will be set by JavaScript)
-    admin_token = get_connect_params(socket)["admin_token"]
+        {:ok,
+         socket
+         |> assign(:slug, slug)
+         |> assign(:document, nil)
+         |> assign(:show_expiration_dialog, true)
+         |> assign(:expiration_options, Mdedit.Documents.Document.expiration_options())
+         |> assign(:selected_expiration, {1, :month}) # default
+         |> assign(:stored_admin_token, admin_token)
+        }
+
+      document ->
+        # Document exists, proceed normally
+        admin_token = get_connect_params(socket)["admin_token"]
+        setup_existing_document(socket, document, admin_token)
+    end
+  end
+
+  defp setup_existing_document(socket, document, admin_token) do
+    # Use the admin token passed as parameter
     is_admin = Documents.admin?(document, admin_token)
 
     # subscribe to document updates for real-time collaboration
@@ -61,6 +82,7 @@ defmodule MdeditWeb.EditorLive do
       |> assign(:is_admin, is_admin)
       |> assign(:admin_token, if(is_admin, do: document.admin_token, else: nil))
       |> assign(:show_delete_confirmation, false)
+      |> assign(:show_expiration_dialog, false)
       |> handle_presence_diff(%{})
 
     {:ok, socket}
@@ -184,6 +206,46 @@ defmodule MdeditWeb.EditorLive do
     {:noreply, assign(socket, :mobile_tab, tab)}
   end
 
+  def handle_event("select_expiration", %{"expiration" => expiration_key}, socket) do
+    selected_expiration =
+      case expiration_key do
+        "1_day" -> {1, :day}
+        "1_week" -> {1, :week}
+        "1_month" -> {1, :month}
+        "1_year" -> {1, :year}
+        _ -> {1, :month}
+      end
+
+    {:noreply, assign(socket, :selected_expiration, selected_expiration)}
+  end
+
+  def handle_event("create_document_with_expiration", _params, socket) do
+    expiration_datetime = Mdedit.Documents.Document.calculate_expiration(socket.assigns.selected_expiration)
+
+    document_attrs = %{
+      title: "New Document",
+      content: default_content(),
+      slug: socket.assigns.slug,
+      expires_at: expiration_datetime
+    }
+
+    case Documents.create_document_with_admin(document_attrs) do
+      {:ok, document} ->
+        # Document created successfully, now set it up using stored admin token
+        admin_token = socket.assigns.stored_admin_token
+        socket = setup_existing_document(socket, document, admin_token)
+        case socket do
+          {:ok, socket} ->
+            {:noreply, socket}
+          socket ->
+            {:noreply, socket}
+        end
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to create document")}
+    end
+  end
+
   def handle_event("show_delete_confirmation", _params, socket) do
     if socket.assigns.is_admin do
       {:noreply, assign(socket, :show_delete_confirmation, true)}
@@ -305,26 +367,6 @@ defmodule MdeditWeb.EditorLive do
     end
   end
 
-  defp create_new_document(slug) do
-    document_attrs = %{
-      title: "New Document",
-      content: default_content(),
-      slug: slug
-    }
-
-    case Documents.create_document_with_admin(document_attrs) do
-      {:ok, document} ->
-        document
-
-      {:error, _changeset} ->
-        # if slug is taken, generate a new one
-        new_slug = generate_slug()
-        updated_attrs = %{document_attrs | slug: new_slug}
-
-        {:ok, document} = Documents.create_document_with_admin(updated_attrs)
-        document
-    end
-  end
 
   defp default_content do
     """
@@ -362,28 +404,73 @@ defmodule MdeditWeb.EditorLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="h-screen flex flex-col">
-      <!-- Responsive Header -->
-      <header class="bg-base-100 border-b border-base-300 px-4 py-2">
-        <!-- Desktop: Single Row -->
-        <div class="hidden md:flex items-center justify-between min-h-8">
-          <!-- Left side: Logo and Document Title -->
-          <div class="flex items-center gap-4 flex-1 mr-4 lg:mr-0">
-            <a href="/" class="flex items-center gap-2 text-lg font-bold">
-              <.icon name="hero-document-text" class="w-5 h-5" /> MDEdit
-            </a>
-            <.input
-              field={@form[:title]}
-              type="text"
-              id="document-title-desktop"
-              class="input input-sm h-6"
-              wrapper_class="mb-0 flex-1 max-w-md"
-              placeholder="Document title..."
-              phx-blur="title_changed"
-              phx-change="title_changed"
-            />
+    <%= if assigns[:show_expiration_dialog] && @show_expiration_dialog do %>
+      <!-- Show only the expiration dialog when document doesn't exist -->
+      <div class="h-screen flex items-center justify-center bg-base-200">
+        <!-- Expiration Selection Dialog -->
+        <div class="card bg-base-100 shadow-xl max-w-md w-full mx-4">
+          <div class="card-body text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-primary/10 mb-4">
+              <.icon name="hero-clock" class="h-6 w-6 text-primary" />
+            </div>
+            <h2 class="card-title justify-center mb-2">Set Document Expiration</h2>
+            <p class="text-sm text-base-content/70 mb-6">
+              Choose how long this document should remain accessible. After expiration, it will no longer be available.
+            </p>
+
+            <div class="space-y-3 mb-6">
+              <%= for {label, duration} <- @expiration_options do %>
+                <label class="flex items-center space-x-3 cursor-pointer p-3 rounded-lg hover:bg-base-200 transition-colors">
+                  <input
+                    type="radio"
+                    name="expiration"
+                    value={duration_to_key(duration)}
+                    checked={@selected_expiration == duration}
+                    phx-click="select_expiration"
+                    phx-value-expiration={duration_to_key(duration)}
+                    class="radio radio-primary"
+                  />
+                  <span class="text-sm font-medium"><%= label %></span>
+                </label>
+              <% end %>
+            </div>
+
+            <div class="card-actions justify-center">
+              <button
+                phx-click="create_document_with_expiration"
+                class="btn btn-primary btn-wide"
+              >
+                <.icon name="hero-plus" class="w-4 h-4 mr-2" />
+                Create Document
+              </button>
+            </div>
           </div>
-          
+        </div>
+      </div>
+    <% else %>
+      <!-- Show normal editor when document exists -->
+      <div class="h-screen flex flex-col">
+        <!-- Responsive Header -->
+        <header class="bg-base-100 border-b border-base-300 px-4 py-2">
+          <!-- Desktop: Single Row -->
+          <div class="hidden md:flex items-center justify-between min-h-8">
+            <!-- Left side: Logo and Document Title -->
+            <div class="flex items-center gap-4 flex-1 mr-4 lg:mr-0">
+              <a href="/" class="flex items-center gap-2 text-lg font-bold">
+                <.icon name="hero-document-text" class="w-5 h-5" /> MDEdit
+              </a>
+              <.input
+                field={@form[:title]}
+                type="text"
+                id="document-title-desktop"
+                class="input input-sm h-6"
+                wrapper_class="mb-0 flex-1 max-w-md"
+                placeholder="Document title..."
+                phx-blur="title_changed"
+                phx-change="title_changed"
+              />
+            </div>
+
     <!-- Right side: Users, Share, Save -->
           <div class="flex items-center gap-4">
             <!-- Connected Users -->
@@ -440,7 +527,7 @@ defmodule MdeditWeb.EditorLive do
             <% end %>
           </div>
         </div>
-        
+
     <!-- Mobile: Two Rows -->
         <div class="md:hidden space-y-3">
           <!-- Top Row: Logo and Document Title -->
@@ -461,7 +548,7 @@ defmodule MdeditWeb.EditorLive do
               />
             </div>
           </div>
-          
+
     <!-- Bottom Row: Users and Actions -->
           <div class="flex items-center justify-between gap-2">
             <!-- Left: Connected Users -->
@@ -486,7 +573,7 @@ defmodule MdeditWeb.EditorLive do
                 </div>
               </div>
             </div>
-            
+
     <!-- Right: Actions -->
             <div class="flex items-center gap-2">
               <span class="text-xs text-base-content/50 hidden sm:inline">
@@ -527,7 +614,7 @@ defmodule MdeditWeb.EditorLive do
       </header>
 
       <MdeditWeb.Layouts.flash_group flash={@flash} />
-      
+
     <!-- Main Editor Area -->
       <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Desktop: Side by Side -->
@@ -550,7 +637,7 @@ defmodule MdeditWeb.EditorLive do
               >{Phoenix.HTML.Form.input_value(@form, :content)}</textarea>
             </.form>
           </div>
-          
+
     <!-- Preview Pane -->
           <div class="w-1/2 flex flex-col">
             <div class="bg-base-100 px-4 py-2 border-b border-base-300">
@@ -566,7 +653,7 @@ defmodule MdeditWeb.EditorLive do
             </div>
           </div>
         </div>
-        
+
     <!-- Mobile: Tabbed Interface -->
         <div class="md:hidden flex-1 flex flex-col overflow-hidden">
           <!-- Tab Navigation -->
@@ -604,7 +691,7 @@ defmodule MdeditWeb.EditorLive do
               </button>
             </div>
           </div>
-          
+
     <!-- Tab Content -->
           <div class="flex-1 overflow-hidden">
             <!-- Editor Tab -->
@@ -622,7 +709,7 @@ defmodule MdeditWeb.EditorLive do
                 >{Phoenix.HTML.Form.input_value(@form, :content)}</textarea>
               </.form>
             </div>
-            
+
     <!-- Preview Tab -->
             <div class={["h-full overflow-auto", if(@mobile_tab != "preview", do: "hidden")]}>
               <div class="p-4">
@@ -638,9 +725,10 @@ defmodule MdeditWeb.EditorLive do
         </div>
       </div>
     </div>
+    <% end %>
 
     <!-- Delete Confirmation Modal -->
-    <%= if @show_delete_confirmation do %>
+    <%= if assigns[:show_delete_confirmation] && @show_delete_confirmation do %>
       <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
           <div class="mt-3 text-center">
@@ -673,4 +761,9 @@ defmodule MdeditWeb.EditorLive do
     <% end %>
     """
   end
+
+  defp duration_to_key({1, :day}), do: "1_day"
+  defp duration_to_key({1, :week}), do: "1_week"
+  defp duration_to_key({1, :month}), do: "1_month"
+  defp duration_to_key({1, :year}), do: "1_year"
 end
