@@ -35,6 +35,12 @@ defmodule MdeditWeb.EditorLive do
     end
   end
 
+  def mount(_params, _session, socket) do
+    # if no slug provided, create a new document
+    slug = generate_slug()
+    {:ok, push_navigate(socket, to: ~p"/editor/#{slug}")}
+  end
+
   defp setup_existing_document(socket, document, admin_token) do
     # Use the admin token passed as parameter
     is_admin = Documents.admin?(document, admin_token)
@@ -86,12 +92,6 @@ defmodule MdeditWeb.EditorLive do
       |> handle_presence_diff(%{})
 
     {:ok, socket}
-  end
-
-  def mount(_params, _session, socket) do
-    # if no slug provided, create a new document
-    slug = generate_slug()
-    {:ok, push_navigate(socket, to: ~p"/editor/#{slug}")}
   end
 
   @impl true
