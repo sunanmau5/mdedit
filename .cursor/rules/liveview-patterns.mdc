@@ -1,0 +1,84 @@
+---
+globs: **/live/*.ex
+---
+
+# LiveView Development Patterns for MDEdit
+
+## LiveView Structure Patterns
+
+### Mount Function Pattern
+Always group `mount/3` clauses together. Pattern match parameters to handle different routes:
+```elixir
+def mount(%{"slug" => slug}, _session, socket) do
+  # Handle existing document route
+end
+
+def mount(_params, _session, socket) do
+  # Handle new document creation
+end
+```
+
+### Admin Token Management
+Store `admin_token` from `connect_params` during mount for later use:
+```elixir
+admin_token = get_connect_params(socket)["admin_token"]
+socket = assign(socket, :stored_admin_token, admin_token)
+```
+
+### Form Handling
+- Use `to_form/2` in LiveView assigns: `assign(socket, form: to_form(changeset))`
+- Access form values: `Phoenix.HTML.Form.input_value(@form, :field)`
+- Never access changesets directly in templates
+
+## Real-time Collaboration Patterns
+
+### PubSub Broadcasting
+```elixir
+Phoenix.PubSub.broadcast(
+  Mdedit.PubSub,
+  socket.assigns.topic,
+  {:content_changed, content, self()}
+)
+```
+
+### Presence Tracking
+- Subscribe to presence: `Phoenix.PubSub.subscribe(Mdedit.PubSub, presence_topic)`
+- Track user: `Presence.track(self(), topic, user_id, metadata)`
+
+### Auto-save Pattern
+```elixir
+Process.send_after(self(), {:auto_save, content}, 2000)
+```
+
+## State Management
+
+### Conditional Rendering
+Use assigns to control UI state:
+```elixir
+assign(socket, :show_expiration_dialog, true)
+assign(socket, :is_admin, Documents.admin?(document, admin_token))
+```
+
+### Error Handling
+- Use `put_flash/3` for user feedback
+- Handle errors gracefully with pattern matching
+
+## Event Handling Patterns
+
+### Security Checks
+Always verify admin status before destructive operations:
+```elixir
+def handle_event("delete_document", _params, socket) do
+  if socket.assigns.is_admin do
+    # Proceed with deletion
+  else
+    {:noreply, put_flash(socket, :error, "Only the creator can delete")}
+  end
+end
+```
+
+### Client-side Integration
+Use `push_event/3` for JavaScript hooks:
+```elixir
+push_event(socket, "store_admin_token", %{slug: slug, admin_token: token})
+```

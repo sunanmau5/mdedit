@@ -1,0 +1,88 @@
+---
+globs: assets/js/*.js,assets/js/*.ts
+---
+
+# JavaScript/Frontend Guidelines for MDEdit
+
+## LiveView Hooks Pattern
+
+All JavaScript functionality should be implemented as LiveView hooks in [app.js](mdc:assets/js/app.js).
+
+### Hook Structure
+```javascript
+let MyHook = {
+  mounted() {
+    // Initialization logic
+  },
+  updated() {
+    // Update logic when LiveView re-renders
+  },
+  destroyed() {
+    // Cleanup logic
+  }
+}
+
+// Register hooks
+let liveSocket = new LiveSocket("/live", Socket, {
+  hooks: { MyHook },
+  params: { ... }
+})
+```
+
+### Admin Token Management
+Use `AdminTokenManager` for localStorage operations:
+```javascript
+const AdminTokenManager = {
+  store: (slug, token) => localStorage.setItem(`admin_token_${slug}`, token),
+  get: (slug) => localStorage.getItem(`admin_token_${slug}`),
+  clear: (slug) => localStorage.removeItem(`admin_token_${slug}`)
+}
+```
+
+### LiveView Integration
+Pass admin tokens to LiveView via params:
+```javascript
+params: {
+  admin_token: (slug) => AdminTokenManager.get(slug)
+}
+```
+
+### Event Handling
+Listen for LiveView events:
+```javascript
+window.addEventListener("phx:store_admin_token", (e) => {
+  AdminTokenManager.store(e.detail.slug, e.detail.admin_token)
+})
+```
+
+## UI Interaction Patterns
+
+### Auto-dismiss Flash Messages
+Use hooks for timed interactions:
+```javascript
+let FlashHook = {
+  mounted() {
+    setTimeout(() => {
+      this.el.style.display = 'none'
+    }, 1000)
+  }
+}
+```
+
+### Editor Hooks
+- Sync content between LiveView and client
+- Handle keyboard shortcuts (Ctrl+S for save)
+- Manage cursor position during real-time updates
+
+## DaisyUI Integration
+
+- Use DaisyUI classes for consistent styling
+- Follow the established design language
+- Use `btn`, `card`, `input` components
+- Apply theme colors: `btn-primary`, `btn-error`, etc.
+
+## Performance Considerations
+
+- Debounce frequent operations (content changes)
+- Use `phx-update="ignore"` when managing DOM directly
+- Clean up event listeners in `destroyed()` hooks

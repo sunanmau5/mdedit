@@ -1,0 +1,39 @@
+---
+alwaysApply: true
+---
+
+# MDEdit Phoenix Project Structure
+
+This is a Phoenix 1.8 web application for collaborative markdown editing with real-time features.
+
+## Key Files and Structure
+
+- **Main Application**: [lib/mdedit.ex](mdc:lib/mdedit.ex) - Main application module
+- **Web Module**: [lib/mdedit_web.ex](mdc:lib/mdedit_web.ex) - Web application configuration with imports and aliases
+- **Router**: [lib/mdedit_web/router.ex](mdc:lib/mdedit_web/router.ex) - Route definitions for the application
+- **Core Components**: [lib/mdedit_web/components/core_components.ex](mdc:lib/mdedit_web/components/core_components.ex) - Reusable UI components including flash messages
+- **Main LiveViews**:
+  - [lib/mdedit_web/live/home_live.ex](mdc:lib/mdedit_web/live/home_live.ex) - Home page
+  - [lib/mdedit_web/live/editor_live.ex](mdc:lib/mdedit_web/live/editor_live.ex) - Main collaborative markdown editor
+- **Business Logic**:
+  - [lib/mdedit/documents.ex](mdc:lib/mdedit/documents.ex) - Documents context
+  - [lib/mdedit/documents/document.ex](mdc:lib/mdedit/documents/document.ex) - Document schema with admin tokens and expiration
+- **Assets**: [assets/js/app.js](mdc:assets/js/app.js) - JavaScript with LiveView hooks and localStorage management
+- **Configuration**: [mix.exs](mdc:mix.exs) - Project dependencies and configuration
+
+## Key Features
+
+- Real-time collaborative markdown editing
+- Etherpad-style access control (creator admin tokens, share via link)
+- Document expiration (1 day, 1 week, 1 month, 1 year)
+- Auto-save functionality
+- Mobile-responsive tabbed interface
+- User presence tracking
+- No public document discovery (private by default)
+
+## Development Commands
+
+- `mix phx.server` - Start development server
+- `mix precommit` - Run pre-commit checks and fix issues
+- `mix compile` - Compile the application
+- `mix test` - Run tests

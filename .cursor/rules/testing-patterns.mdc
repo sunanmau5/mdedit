@@ -1,0 +1,111 @@
+---
+globs: test/**/*.exs
+---
+
+# Testing Patterns for MDEdit
+
+## LiveView Testing Strategy
+
+Use `Phoenix.LiveViewTest` for all LiveView interactions in [test files](mdc:test/mdedit_web/live/).
+
+### Basic LiveView Test Pattern
+```elixir
+test "renders home page", %{conn: conn} do
+  {:ok, _view, html} = live(conn, ~p"/")
+  assert html =~ "collaborative markdown editor"
+end
+```
+
+### Element Testing
+- Use `has_element?/2` instead of raw HTML matching
+- Reference DOM IDs from templates: `assert has_element?(view, "#editor-form")`
+- Test element presence: `assert has_element?(view, ".btn-primary")`
+
+### Form Testing
+```elixir
+test "creates document with expiration", %{conn: conn} do
+  {:ok, view, _html} = live(conn, ~p"/editor/new-slug")
+
+  view
+  |> element("#expiration-form")
+  |> render_submit(%{"expiration" => "1_week"})
+
+  assert has_element?(view, "#markdown-editor")
+end
+```
+
+### Event Testing
+```elixir
+test "handles content changes", %{conn: conn} do
+  {:ok, view, _html} = live(conn, ~p"/editor/#{document.slug}")
+
+  view
+  |> element("#markdown-editor")
+  |> render_change(%{"content" => "# New Content"})
+
+  assert has_element?(view, text: "New Content")
+end
+```
+
+## Database Testing
+
+### Test Setup
+```elixir
+setup %{conn: conn} do
+  document = document_fixture()
+  %{conn: conn, document: document}
+end
+```
+
+### Factory Pattern
+Create test fixtures for documents:
+```elixir
+def document_fixture(attrs \\ %{}) do
+  {:ok, document} =
+    attrs
+    |> Enum.into(%{
+      title: "Test Document",
+      content: "# Test Content",
+      slug: "test-slug"
+    })
+    |> Documents.create_document_with_admin()
+
+  document
+end
+```
+
+## Testing Guidelines
+
+### Focus Areas
+1. **LiveView mounting** - Test different routes and parameters
+2. **Real-time features** - Test PubSub broadcasting and presence
+3. **Access control** - Test admin token validation
+4. **Form interactions** - Test document creation and editing
+5. **Error handling** - Test validation errors and edge cases
+
+### Test Organization
+- Split major test cases into isolated files
+- Start with simple content tests, add interaction tests gradually
+- Test outcomes rather than implementation details
+- Use descriptive test names that explain the behavior
+
+### Debugging Failed Tests
+Use `LazyHTML` to inspect actual HTML structure:
+```elixir
+html = render(view)
+document = LazyHTML.from_fragment(html)
+matches = LazyHTML.filter(document, "your-selector")
+IO.inspect(matches, label: "Debug")
+```
+
+### Admin Token Testing
+Test both admin and non-admin scenarios:
+```elixir
+test "admin can delete document" do
+  # Test with admin_token in connect_params
+end
+
+test "non-admin cannot delete document" do
+  # Test without admin_token
+end
+```

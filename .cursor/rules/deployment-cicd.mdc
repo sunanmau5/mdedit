@@ -1,0 +1,75 @@
+---
+globs: .github/workflows/*.yml,config/*.exs,elixir_buildpack.config
+---
+
+# Deployment and CI/CD Guidelines
+
+## GitHub Actions Deployment
+
+The [CI/CD workflow](mdc:.github/workflows/ci-cd.yml) uses a "dead simple" approach:
+- Deploys only on push to `master` branch
+- Uses `mhanberg/gigalixir-action@v0.6.0` for deployment
+- Handles migrations automatically with `MIGRATIONS: true`
+
+### Required Secrets
+- `GIGALIXIR_EMAIL` - Gigalixir account email
+- `GIGALIXIR_PASSWORD` - Gigalixir account password
+- `GIGALIXIR_APP_NAME` - Application name on Gigalixir
+- `SSH_PRIVATE_KEY` - SSH key for running remote commands
+
+### Workflow Pattern
+```yaml
+- uses: mhanberg/gigalixir-action@v0.6.0
+  with:
+    GIGALIXIR_USERNAME: ${{ secrets.GIGALIXIR_EMAIL }}
+    GIGALIXIR_PASSWORD: ${{ secrets.GIGALIXIR_PASSWORD }}
+    GIGALIXIR_APP: ${{ secrets.GIGALIXIR_APP_NAME }}
+    SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+    MIGRATIONS: true
+```
+
+## Gigalixir Configuration
+
+### Buildpack Configuration
+[elixir_buildpack.config](mdc:elixir_buildpack.config) specifies:
+- Elixir version: 1.15.7
+- Erlang version: 26.1.2
+- `always_rebuild=false` for faster deploys
+- `runtime_path=/app` for release configuration
+
+### Release Configuration
+[config/releases.exs](mdc:config/releases.exs) handles production config:
+```elixir
+config :mdedit, MdeditWeb.Endpoint,
+  server: true,
+  http: [port: {:system, "PORT"}],
+  url: [host: System.get_env("APP_NAME") <> ".gigalixirapp.com", port: 443]
+```
+
+## Database Operations
+
+### Local Development
+- `mix ecto.setup` - Set up database
+- `mix ecto.migrate` - Run migrations
+- `mix run -e "Repo.delete_all(Document)"` - Clean up data
+
+### Production Commands
+Use Gigalixir remote console for database operations:
+```bash
+gigalixir ps:remote_console --app=APP_NAME
+# Then in the console:
+Mdedit.Repo.delete_all(Mdedit.Documents.Document)
+```
+
+## Development Workflow
+
+1. Make changes locally
+2. Test with `mix test` and `mix precommit`
+3. Commit and push to `master`
+4. GitHub Actions automatically deploys to Gigalixir
+5. Migrations run automatically during deployment
+
+## HTTP Client
+- Use `:req` library for HTTP requests (already included)
+- Avoid `:httpoison`, `:tesla`, `:httpc`
+- Req is the preferred HTTP client for Phoenix apps

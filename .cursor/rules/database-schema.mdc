@@ -1,0 +1,65 @@
+---
+globs: lib/mdedit/documents/*.ex,priv/repo/migrations/*.exs
+---
+
+# Database Schema and Migrations Guidelines
+
+## Document Schema Pattern
+
+The [Document schema](mdc:lib/mdedit/documents/document.ex) implements Etherpad-style access control:
+
+### Core Fields
+- `slug` - Unique document identifier (URL-safe)
+- `title` - Document title
+- `content` - Markdown content
+- `admin_token` - Creator's admin token (UUID, can be nil for legacy docs)
+- `expires_at` - Expiration timestamp (can be nil for permanent docs)
+
+### Access Control Logic
+```elixir
+def admin?(document, token) do
+  document.admin_token != nil && document.admin_token == token
+end
+
+def expired?(document) do
+  document.expires_at && DateTime.compare(DateTime.utc_now(), document.expires_at) == :gt
+end
+```
+
+### Document Creation Pattern
+Use `create_document_with_admin/1` to auto-generate admin tokens:
+```elixir
+def create_changeset(document, attrs) do
+  document
+  |> cast(attrs, [:title, :content, :slug, :expires_at])
+  |> validate_required([:title, :content, :slug])
+  |> unique_constraint(:slug)
+  |> put_change(:admin_token, generate_admin_token())
+  |> maybe_put_default_expiration()
+end
+```
+
+## Migration Patterns
+
+### Adding New Fields
+- Use descriptive migration names: `add_admin_token_to_documents`
+- Add indexes for frequently queried fields: `create index(:documents, [:expires_at])`
+- Consider data migration for existing records
+
+### Database Operations
+- Use `mix ecto.migrate` for applying migrations
+- Clean up with direct Ecto commands: `Repo.delete_all(Document)`
+- Test migrations in development before production deployment
+
+## Context Module Pattern
+
+The [Documents context](mdc:lib/mdedit/documents.ex) handles:
+- Document creation with admin tokens
+- Expiration checking in `get_document_by_slug/1`
+- Admin permission verification
+- Business logic abstraction from LiveView
+
+### Security Considerations
+- Legacy documents (admin_token: nil) are read-only for everyone
+- Expired documents return `nil` from context functions
+- Admin tokens are stored in localStorage and passed via LiveView params

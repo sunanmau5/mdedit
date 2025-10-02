@@ -1,0 +1,64 @@
+---
+globs: *.ex,*.exs
+---
+
+# Phoenix/Elixir Development Guidelines
+
+## Core Elixir Rules
+
+- **List Access**: Never use `list[index]` - use `Enum.at(list, index)` or pattern matching
+- **Variable Rebinding**: Variables are immutable but can be rebound. For block expressions (`if`, `case`, `cond`), bind the result:
+  ```elixir
+  # CORRECT
+  socket = if connected?(socket) do
+    assign(socket, :val, val)
+  end
+
+  # WRONG
+  if connected?(socket) do
+    socket = assign(socket, :val, val)  # This rebinding is lost
+  end
+  ```
+- **Function Grouping**: All function clauses with the same name/arity must be consecutive
+- **Struct Access**: Never use map access syntax on structs (`struct[:field]`) - use `struct.field` or specialized functions like `Ecto.Changeset.get_field/2`
+- **Atom Safety**: Never use `String.to_atom/1` on user input (memory leak risk)
+- **Predicate Naming**: End in `?`, don't start with `is_` (reserve `is_` for guards)
+
+## Phoenix 1.8 Specific Rules
+
+### LiveView Templates
+- **Always** begin templates with `<Layouts.app flash={@flash} ...>` wrapper
+- Use `~H` sigil for HEEx templates, never `~E`
+- Use imported `Phoenix.Component.form/1` and `to_form/2`, never `Phoenix.HTML.form_for`
+- Add unique DOM IDs to key elements for testing: `<.form for={@form} id="product-form">`
+
+### Forms and Inputs
+- **Always** use `<.input>` component from [core_components.ex](mdc:lib/mdedit_web/components/core_components.ex)
+- Access forms via `@form[:field]` in templates
+- Use `to_form/2` in LiveView: `assign(socket, form: to_form(...))`
+
+### HEEx Syntax Rules
+- Interpolation in attributes: `{@variable}`
+- Interpolation in tag bodies: `{@variable}` for values, `<%= %>` for blocks
+- **Never** use `<%= %>` in attributes - causes syntax error
+- Class lists: Use `class={["base-class", @condition && "conditional-class"]}`
+- Comments: Use `<%!-- comment --%>`
+- No curly braces in text: Use `phx-no-curly-interpolation` attribute for code snippets
+
+### Conditionals
+- **No `else if`** - use `cond` or `case` for multiple conditions
+- Template conditionals: `<%= cond do %>` with `<% condition -> %>`
+
+## Ecto Guidelines
+
+- **Always** preload associations when accessed in templates
+- Schema fields use `:string` type even for text columns
+- Use `Ecto.Changeset.get_field(changeset, :field)` to access fields
+- Programmatic fields (like `user_id`) must not be in `cast` calls - set explicitly for security
+
+## Testing Guidelines
+
+- Use `Phoenix.LiveViewTest` and `LazyHTML` for assertions
+- Test element presence with `has_element?(view, "#selector")`, not raw HTML
+- Reference DOM IDs from templates in tests
+- Use `render_submit/2` and `render_change/2` for form testing
