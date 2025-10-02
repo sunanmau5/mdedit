@@ -413,7 +413,7 @@ defmodule MdeditWeb.EditorLive do
             <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-primary/10 mb-4">
               <.icon name="hero-clock" class="h-6 w-6 text-primary" />
             </div>
-            <h2 class="card-title justify-center mb-2">Set Document Expiration</h2>
+            <h2 class="card-title justify-center mb-2">Set document expiration</h2>
             <p class="text-sm text-base-content/70 mb-6">
               Choose how long this document should remain accessible. After expiration, it will no longer be available.
             </p>
@@ -438,10 +438,10 @@ defmodule MdeditWeb.EditorLive do
             <div class="card-actions justify-center">
               <button
                 phx-click="create_document_with_expiration"
-                class="btn btn-primary btn-wide"
+                class="btn btn-primary"
               >
-                <.icon name="hero-plus" class="w-4 h-4 mr-2" />
-                Create Document
+                <.icon name="hero-plus" class="w-4 h-4 mr-1" />
+                Create document
               </button>
             </div>
           </div>

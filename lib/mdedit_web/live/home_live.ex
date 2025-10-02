@@ -26,9 +26,9 @@ defmodule MdeditWeb.HomeLive do
           </p>
           <.link
             navigate={~p"/editor"}
-            class="btn btn-primary rounded-full"
+            class="btn btn-primary"
           >
-            <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Start Writing
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" />Start writing
           </.link>
         </div>
       </div>
